@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Simulação de Ataques MQTT</title>
+  <style>
+    :root {
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: #111;
+      background: #f8f8f8;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      line-height: 1.6;
+    }
+    header {
+      background: #222;
+      color: #fff;
+      padding: 2rem 3rem;
+    }
+    header h1 {
+      margin: 0 0 0.5rem;
+      font-size: 2.2rem;
+    }
+    header p {
+      margin: 0;
+      max-width: 700px;
+    }
+    main {
+      padding: 2rem 3rem;
+      max-width: 1100px;
+      margin: 0 auto;
+      background: #fff;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.05);
+    }
+    section {
+      margin-bottom: 3rem;
+    }
+    h2 {
+      margin-top: 0;
+      color: #005a9c;
+    }
+    .card {
+      border: 1px solid #e2e2e2;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-top: 1rem;
+      background: #fafafa;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: #dfe9f5;
+      color: #005a9c;
+      margin-bottom: 0.8rem;
+    }
+    ol, ul {
+      padding-left: 1.3rem;
+    }
+    pre {
+      background: #1e1e1e;
+      color: #f5f5f5;
+      padding: 1rem;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+    code {
+      font-family: "Consolas", "Courier New", monospace;
+    }
+    .diagram {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+    .diagram div {
+      flex: 1 1 250px;
+      border: 1px dashed #ccc;
+      border-radius: 6px;
+      padding: 0.8rem;
+      text-align: center;
+      background: #fff;
+    }
+    button {
+      border: none;
+      border-radius: 6px;
+      background: #005a9c;
+      color: #fff;
+      padding: 0.5rem 1.1rem;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    button[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    button.secondary {
+      background: #555;
+    }
+    button:hover:not([disabled]) {
+      background: #0c6fc0;
+    }
+    .sim-card {
+      margin-top: 1.5rem;
+      background: #fff;
+      border: 1px solid #d9e5f5;
+    }
+    .sim-controls {
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .sim-status {
+      font-size: 0.9rem;
+      color: #555;
+    }
+    .sim-log {
+      background: #050a12;
+      color: #d1e7ff;
+      border-radius: 6px;
+      padding: 0.8rem;
+      font-family: "Consolas", "Courier New", monospace;
+      height: 220px;
+      overflow-y: auto;
+      border: 1px solid #0f1d33;
+    }
+    .sim-line {
+      margin-bottom: 0.35rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+    }
+    .sim-role {
+      min-width: 110px;
+      font-weight: bold;
+    }
+    .role-publisher {
+      color: #66c1ff;
+    }
+    .role-attacker {
+      color: #ff8c66;
+    }
+    .role-subscriber {
+      color: #7bffb0;
+    }
+    .sim-hint {
+      margin-top: 0.8rem;
+      font-size: 0.85rem;
+      color: #666;
+    }
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.9rem;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Simulação de Ataques MQTT</h1>
+    <p>
+      Guia prático e didático mostrando como executar, com seu usuário local, três cenários de ataque que
+      comprometem integridade, confidencialidade e disponibilidade em um ambiente MQTT controlado.
+    </p>
+  </header>
+
+  <main>
+    <section>
+      <h2>Pré-requisitos rápidos</h2>
+      <div class="card">
+        <ul>
+          <li>Python 3.11+ instalado e acessível via <code>python</code>.</li>
+          <li>Dependências Python: <code>pip install -r requirements.txt</code>.</li>
+          <li>Broker MQTT local <strong>eclipse-mosquitto</strong> rodando via Docker:
+            <pre><code>docker compose up -d mosquitto
+# ou
+docker run -d --name mosquitto -p 1883:1883 eclipse-mosquitto:latest mosquitto -c /mosquitto-no-auth.conf</code></pre>
+          </li>
+          <li>Abra três terminais (PowerShell, por exemplo) para cada cenário e navegue até a pasta correspondente.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>Cenário 1 – Integridade (Man-in-the-Middle)</h2>
+      <div class="badge">integridade/</div>
+      <p>O atacante intercepta o tópico de transferências bancárias, altera o campo <code>para</code> e
+        redireciona para um tópico adulterado. O sistema legítimo confia nesse novo tópico e processa dados
+        manipulados.</p>
+
+      <div class="diagram">
+        <div>
+          <strong>Publisher</strong><br />
+          <code>python publisher.py</code><br />
+          Envia transferências em <code>banco/transferencia</code>.
+        </div>
+        <div>
+          <strong>Attacker</strong><br />
+          <code>python attacker.py</code><br />
+          Intercepta, altera destino e publica em <code>banco/transferencia_real</code>.
+        </div>
+        <div>
+          <strong>Subscriber</strong><br />
+          <code>python subscriber.py</code><br />
+          Recebe mensagens adulteradas sem perceber.
+        </div>
+      </div>
+
+      <div class="card sim-card" data-sim="integridade">
+        <h3>Simulacao interativa</h3>
+        <p>Pressione iniciar para ver um fluxo completo de publicacao, interceptacao e entrega adulterada.</p>
+        <div class="sim-controls">
+          <button data-action="start">Iniciar simulacao</button>
+          <button data-action="stop" disabled>Parar</button>
+          <button data-action="clear" class="secondary">Limpar log</button>
+          <span class="sim-status" data-status>Parado</span>
+        </div>
+        <div class="sim-log" data-log aria-live="polite"></div>
+        <p class="sim-hint">Jogamos varios valores aleatorios para ilustrar como o atacante troca o campo <code>para</code> antes do subscriber.</p>
+      </div>
+
+      <div class="card">
+        <h3>Passo a passo para você rodar</h3>
+        <ol>
+          <li>Terminal A – sistema legítimo:
+            <pre><code>cd integridade
+python subscriber.py</code></pre>
+          </li>
+          <li>Terminal B – atacante MITM:
+            <pre><code>cd integridade
+python attacker.py</code></pre>
+          </li>
+          <li>Terminal C – banco publicador:
+            <pre><code>cd integridade
+python publisher.py</code></pre>
+          </li>
+        </ol>
+        <p>Observe no Terminal B que o campo <code>para</code> é alterado para “Conta do Hacker” antes da entrega ao
+          subscriber.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Cenário 2 – Confidencialidade (Criptoanálise da Cifra de César)</h2>
+      <div class="badge">confidencialidade/</div>
+      <p>Mensagens sensíveis são cifradas com ROT13. O atacante intercepta todas, roda brute force das 26 chaves
+        possíveis e identifica automaticamente a correta, quebrando a confidencialidade.</p>
+
+      <div class="diagram">
+        <div>
+          <strong>Publisher</strong><br />
+          <code>python publisher_cesar.py</code><br />
+          Envia JSON com textos cifrados no tópico secreto.
+        </div>
+        <div>
+          <strong>Attacker</strong><br />
+          <code>python attacker_cesar.py</code><br />
+          Testa todas as chaves, encontra palavras conhecidas e revela o texto.
+        </div>
+        <div>
+          <strong>Subscriber</strong><br />
+          <code>python subscriber_cesar.py</code><br />
+          Decifra usando a chave legítima conhecida (ROT13).
+        </div>
+      </div>
+
+      <div class="card sim-card" data-sim="confidencialidade">
+        <h3>Simulacao interativa</h3>
+        <p>Veja em tempo real como a cifra fraca e o atacante descobrindo a chave expõem o conteudo sensivel.</p>
+        <div class="sim-controls">
+          <button data-action="start">Iniciar simulacao</button>
+          <button data-action="stop" disabled>Parar</button>
+          <button data-action="clear" class="secondary">Limpar log</button>
+          <span class="sim-status" data-status>Parado</span>
+        </div>
+        <div class="sim-log" data-log aria-live="polite"></div>
+        <p class="sim-hint">O atacante testa todas as chaves de ROT13, detecta palavras bancarias e reescreve o texto em claro.</p>
+      </div>
+
+      <div class="card">
+        <h3>Execute você mesmo</h3>
+        <ol>
+          <li>Terminal A – receptor legítimo:
+            <pre><code>cd confidencialidade
+python subscriber_cesar.py</code></pre>
+          </li>
+          <li>Terminal B – atacante criptoanalista:
+            <pre><code>cd confidencialidade
+python attacker_cesar.py</code></pre>
+          </li>
+          <li>Terminal C – emissor:
+            <pre><code>cd confidencialidade
+python publisher_cesar.py</code></pre>
+          </li>
+        </ol>
+        <p>Compare as saídas dos Terminais B e C para ver como a informação sigilosa é vazada.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Cenário 3 – Disponibilidade (Flood / DoS)</h2>
+      <div class="badge">disponibilidade/</div>
+      <p>O sistema legítimo usa heartbeats para monitorar saúde do serviço. O atacante envia centenas de mensagens
+        por segundo no mesmo tópico, congestionando o broker e atrasando/derrubando os heartbeats legítimos.</p>
+
+      <div class="diagram">
+        <div>
+          <strong>Publisher</strong><br />
+          <code>python publisher.py</code><br />
+          Gera heartbeats sequenciais com timestamps.
+        </div>
+        <div>
+          <strong>Attacker</strong><br />
+          <code>python attacker.py</code><br />
+          Flooda <code>banco/disponibilidade/status</code> com ruído.
+        </div>
+        <div>
+          <strong>Subscriber</strong><br />
+          <code>python subscriber.py</code><br />
+          Detecta atrasos, perda de sequência e volume de ruído.
+        </div>
+      </div>
+
+      <div class="card sim-card" data-sim="disponibilidade">
+        <h3>Simulacao interativa</h3>
+        <p>Monitore heartbeats, observe o atacante inundando o broker e veja quando o subscriber acusa atraso.</p>
+        <div class="sim-controls">
+          <button data-action="start">Iniciar simulacao</button>
+          <button data-action="stop" disabled>Parar</button>
+          <button data-action="clear" class="secondary">Limpar log</button>
+          <span class="sim-status" data-status>Parado</span>
+        </div>
+        <div class="sim-log" data-log aria-live="polite"></div>
+        <p class="sim-hint">A simulacao nao envia nada para o broker real �?" serve apenas como apoio visual direto na pagina.</p>
+      </div>
+
+      <div class="card">
+        <h3>Hands-on do ataque</h3>
+        <ol>
+          <li>Terminal A – monitor legítimo:
+            <pre><code>cd disponibilidade
+python subscriber.py</code></pre>
+          </li>
+          <li>Terminal B – atacante DoS:
+            <pre><code>cd disponibilidade
+python attacker.py</code></pre>
+          </li>
+          <li>Terminal C – emissor de heartbeats:
+            <pre><code>cd disponibilidade
+python publisher.py</code></pre>
+          </li>
+        </ol>
+        <p>Na saída do subscriber você verá alertas de atraso e heartbeats perdidos, simulando indisponibilidade.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Reforce cada etapa com TLS, autenticação robusta e segregação de tópicos para mitigar ataques reais.
+  </footer>
+
+  <script>
+    (function () {
+      const currencyFormatter = new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+        maximumFractionDigits: 2,
+      });
+
+      const randomFrom = (list) => list[Math.floor(Math.random() * list.length)];
+
+      const caesarShift = (text, shift) =>
+        text.replace(/[a-z]/gi, (char) => {
+          const base = char === char.toLowerCase() ? 97 : 65;
+          const normalized = char.charCodeAt(0) - base;
+          const rotated = (normalized + shift) % 26;
+          return String.fromCharCode(rotated + base);
+        });
+
+      const simulationConfigs = {
+        integridade: {
+          state: { transferId: 4200 },
+          generate() {
+            this.state.transferId += 1;
+            const amount = Math.random() * (12000 - 700) + 700;
+            const legitDest = randomFrom([
+              'Conta Salarios 0045-1',
+              'Agencia Investimentos 3102',
+              'Cliente Premium 8891-0',
+              'Carteira PJ 0021-8',
+            ]);
+            const attackerDest = randomFrom([
+              'Conta do Hacker',
+              'Carteira Offshore X',
+              'Chave PIX suspeita',
+            ]);
+            const methods = ['PIX', 'TED', 'DOC'];
+            const method = randomFrom(methods);
+            const payload = currencyFormatter.format(amount);
+            const time = new Date().toLocaleTimeString('pt-BR', { hour12: false });
+            return [
+              {
+                role: 'publisher',
+                message: `[${time}] Banco publica ${method} #${this.state.transferId} para ${legitDest} (${payload}) em banco/transferencia.`,
+              },
+              {
+                role: 'attacker',
+                message: `MITM intercepta #${this.state.transferId}, troca campo "para" por ${attackerDest} e mascara o payload.`,
+              },
+              {
+                role: 'attacker',
+                message: `Replay adulterado enviado para banco/transferencia_real enquanto o canal legitimo fica silencioso.`,
+              },
+              {
+                role: 'subscriber',
+                message: `Core bancario consome o topico adulterado e entrega a transferencia #${this.state.transferId} ao destino falso ${attackerDest}.`,
+              },
+            ];
+          },
+        },
+        confidencialidade: {
+          state: {},
+          generate() {
+            const samples = [
+              {
+                plain: 'transferencia secreta liberada hoje',
+                keyword: 'transferencia',
+              },
+              {
+                plain: 'senha provisoria expira em 30 minutos',
+                keyword: 'senha',
+              },
+              {
+                plain: 'saldo caixa matriz atualizado',
+                keyword: 'saldo',
+              },
+              {
+                plain: 'credito aprovado para filial norte',
+                keyword: 'credito',
+              },
+            ];
+            const choice = randomFrom(samples);
+            const cipher = caesarShift(choice.plain, 13);
+            const time = new Date().toLocaleTimeString('pt-BR', { hour12: false });
+            return [
+              {
+                role: 'publisher',
+                message: `[${time}] Payload cifrado "${cipher}" publicado no topico banco/mensagem_secreta (ROT13).`,
+              },
+              {
+                role: 'attacker',
+                message: 'Sniffer captura o pacote e testa todas as 26 chaves da cifra de Cesar.',
+              },
+              {
+                role: 'attacker',
+                message: `Encontrou a chave 13 ao detectar a palavra "${choice.keyword}". Texto em claro: "${choice.plain}".`,
+              },
+              {
+                role: 'subscriber',
+                message: 'Receptor legitimo confirma o mesmo texto e evidencia vazamento de confidencialidade.',
+              },
+            ];
+          },
+        },
+        disponibilidade: {
+          state: { heartbeat: 1020 },
+          generate() {
+            this.state.heartbeat += 1;
+            const latency = Math.floor(Math.random() * 580) + 80;
+            const flood = Math.floor(Math.random() * 300) + 200;
+            const dropped = Math.random() > 0.6 ? Math.floor(Math.random() * 4) + 1 : 0;
+            const time = new Date().toLocaleTimeString('pt-BR', { hour12: false });
+            return [
+              {
+                role: 'publisher',
+                message: `[${time}] Heartbeat HB-${this.state.heartbeat} com latencia ${latency}ms enviado.`,
+              },
+              {
+                role: 'attacker',
+                message: `Flood de ${flood} mensagens ruidosas no mesmo topico gera fila congestionada.`,
+              },
+              {
+                role: 'subscriber',
+                message:
+                  dropped > 0
+                    ? `Monitor detecta ${dropped} heartbeats fora de sequencia (HB-${this.state.heartbeat - dropped} perdido).`
+                    : `Monitor detecta aumento de latencia (${latency + 300}ms) logo apos o flood.`,
+              },
+              {
+                role: 'subscriber',
+                message: 'Alertando equipe NOC: indisponibilidade iminente por DoS.',
+              },
+            ];
+          },
+        },
+      };
+
+      const roleLabels = {
+        publisher: 'Publisher',
+        attacker: 'Attacker',
+        subscriber: 'Subscriber',
+      };
+
+      const MAX_LINES = 60;
+
+      document.querySelectorAll('.sim-card').forEach((card) => {
+        const key = card.getAttribute('data-sim');
+        const config = simulationConfigs[key];
+        if (!config) {
+          return;
+        }
+
+        const logEl = card.querySelector('[data-log]');
+        const startBtn = card.querySelector('button[data-action="start"]');
+        const stopBtn = card.querySelector('button[data-action="stop"]');
+        const clearBtn = card.querySelector('button[data-action="clear"]');
+        const statusEl = card.querySelector('[data-status]');
+
+        const controller = {
+          key,
+          config,
+          logEl,
+          startBtn,
+          stopBtn,
+          clearBtn,
+          statusEl,
+          running: false,
+          pending: new Set(),
+        };
+
+        const appendLine = (role, message) => {
+          const line = document.createElement('div');
+          line.className = 'sim-line';
+
+          const roleSpan = document.createElement('span');
+          roleSpan.className = `sim-role role-${role}`;
+          roleSpan.textContent = roleLabels[role] || role;
+
+          const textSpan = document.createElement('span');
+          textSpan.textContent = message;
+
+          line.appendChild(roleSpan);
+          line.appendChild(textSpan);
+
+          controller.logEl.appendChild(line);
+          while (controller.logEl.children.length > MAX_LINES) {
+            controller.logEl.removeChild(controller.logEl.firstChild);
+          }
+          controller.logEl.scrollTop = controller.logEl.scrollHeight;
+        };
+
+        const clearTimers = () => {
+          controller.pending.forEach((id) => window.clearTimeout(id));
+          controller.pending.clear();
+        };
+
+        const stopSimulation = (label = 'Parado') => {
+          controller.running = false;
+          clearTimers();
+          controller.startBtn.disabled = false;
+          controller.stopBtn.disabled = true;
+          controller.statusEl.textContent = label;
+        };
+
+        const enqueue = (fn, delay) => {
+          const id = window.setTimeout(() => {
+            controller.pending.delete(id);
+            fn();
+          }, delay);
+          controller.pending.add(id);
+        };
+
+        const runCycle = () => {
+          if (!controller.running) {
+            return;
+          }
+          const events = controller.config.generate();
+          if (!events || events.length === 0) {
+            stopSimulation('Sem eventos');
+            return;
+          }
+          let delay = 0;
+          events.forEach((evt, index) => {
+            delay += 400 + Math.random() * 500;
+            enqueue(() => {
+              if (!controller.running) {
+                return;
+              }
+              appendLine(evt.role, evt.message);
+              if (index === events.length - 1) {
+                enqueue(() => {
+                  if (controller.running) {
+                    runCycle();
+                  }
+                }, 1200);
+              }
+            }, delay);
+          });
+        };
+
+        startBtn.addEventListener('click', () => {
+          if (controller.running) {
+            return;
+          }
+          controller.running = true;
+          controller.startBtn.disabled = true;
+          controller.stopBtn.disabled = false;
+          controller.statusEl.textContent = 'Simulando...';
+          runCycle();
+        });
+
+        stopBtn.addEventListener('click', () => {
+          if (!controller.running) {
+            return;
+          }
+          stopSimulation();
+        });
+
+        clearBtn.addEventListener('click', () => {
+          clearTimers();
+          controller.logEl.innerHTML = '';
+          controller.statusEl.textContent = controller.running ? 'Simulando...' : 'Pronto';
+        });
+      });
+    })();
+  </script>
+
+</body>
+</html>

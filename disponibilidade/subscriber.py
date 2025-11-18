@@ -6,7 +6,7 @@ import paho.mqtt.client as mqtt
 BROKER = "localhost"
 PORT = 1883
 TOPIC = "banco/disponibilidade/status"
-MAX_LATENCY = 2.0  # segundos aceitáveis para o heartbeat
+MAX_LATENCY = 2.0
 
 state = {
     "legitimas": 0,

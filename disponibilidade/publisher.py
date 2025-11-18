@@ -6,7 +6,7 @@ import paho.mqtt.client as mqtt
 BROKER = "localhost"
 PORT = 1883
 TOPIC = "banco/disponibilidade/status"
-HEARTBEAT_INTERVAL = 1.0  # seconds
+HEARTBEAT_INTERVAL = 1.0
 
 
 def main():

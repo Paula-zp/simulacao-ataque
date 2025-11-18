@@ -7,8 +7,8 @@ import paho.mqtt.client as mqtt
 BROKER = "localhost"
 PORT = 1883
 TARGET_TOPIC = "banco/disponibilidade/status"
-FLOOD_RATE = 300  # mensagens por segundo
-PAYLOAD_SIZE = 4096  # bytes
+FLOOD_RATE = 300
+PAYLOAD_SIZE = 4096
 
 
 def main():
